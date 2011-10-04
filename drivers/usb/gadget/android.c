@@ -742,7 +742,8 @@ void get_usb_serial(char *usb_serial_number)
 
 	unique_serial_number = (system_serial_high << 16) + (system_serial_low >> 16);
 
-	sprintf(temp_serial_number,"I5500%08x",unique_serial_number);
+	//sprintf(temp_serial_number,"I5500%08x",unique_serial_number);
+	sprintf(temp_serial_number,"I5503T%08x",unique_serial_number);
 	strcpy(usb_serial_number,temp_serial_number);
 }
 

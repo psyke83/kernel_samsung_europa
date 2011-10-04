@@ -1034,7 +1034,7 @@ extern int fsa9280_i2c_read(unsigned char u_addr, unsigned char *pu_data);
 #define BATT_LEVEL6_ADC	3260
 #define BATT_FULL_ADC		3620
 
-#define BATT_RECHR_ADC		3515
+#define BATT_RECHR_ADC		3560 //3515
 
 //#define BATT_FULL_ADC		3440
 //#define BATT_FULL_VOLT		4150

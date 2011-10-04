@@ -446,7 +446,7 @@ static ssize_t store_waketime(struct device *d,
 	return count;
 }
 
-static DEVICE_ATTR(waketime, S_IRUGO | S_IWUGO, show_waketime, store_waketime);
+static DEVICE_ATTR(waketime, 0664, show_waketime, store_waketime);
 
 
 /*
@@ -557,11 +557,11 @@ static inline int dpram_write(struct file *filp, const void *buf, size_t count,
 			DPRINTK(1, "DPRAM not available\n");
 			return -ENODEV;
 		}
-      dpram_filp->f_flags |= O_NONBLOCK;
+		dpram_filp->f_flags |= O_NONBLOCK;
 		oldfs = get_fs(); set_fs(get_ds());
 		ret = filp->f_op->write(filp, buf + n, count, &filp->f_pos);
 		set_fs(oldfs);
-      dpram_filp->f_flags &= ~O_NONBLOCK;
+		dpram_filp->f_flags &= ~O_NONBLOCK;
 		if (ret < 0) {
 			if (ret == -EAGAIN && !nonblock) {
 				continue;
@@ -580,11 +580,11 @@ static inline int dpram_read(struct file *filp, void *buf, size_t count)
 	int ret, n = 0;
 	mm_segment_t oldfs;
 	while (count) {
-      dpram_filp->f_flags |= O_NONBLOCK;
+		dpram_filp->f_flags |= O_NONBLOCK;
 		oldfs = get_fs(); set_fs(get_ds());
 		ret = filp->f_op->read(filp, buf + n, count, &filp->f_pos);
 		set_fs(oldfs);
-      dpram_filp->f_flags &= ~O_NONBLOCK;
+		dpram_filp->f_flags &= ~O_NONBLOCK;
 		if (ret < 0) {
 			if (ret == -EAGAIN) {
 				continue;
@@ -608,11 +608,11 @@ static inline int dpram_flush_rx(struct file *filp, size_t count)
 	if (buf == NULL) return -ENOMEM;
 
 	while (count) {
-      dpram_filp->f_flags |= O_NONBLOCK;
+		dpram_filp->f_flags |= O_NONBLOCK;
 		oldfs = get_fs(); set_fs(get_ds());
 		ret = filp->f_op->read(filp, buf + n, count, &filp->f_pos);
 		set_fs(oldfs);
-      dpram_filp->f_flags &= ~O_NONBLOCK;
+		dpram_filp->f_flags &= ~O_NONBLOCK;
 		if (ret < 0) {
 			if (ret == -EAGAIN) continue;
 			DPRINTK(1, "f_op->read() failed: %d\n", ret);
@@ -677,8 +677,8 @@ static int dpram_thread(void *data)
 	daemonize("dpram_thread");
 	strcpy(current->comm, "multipdp");
 
-   schedpar.sched_priority = 1;
-   sched_setscheduler(current, SCHED_FIFO, &schedpar);
+	schedpar.sched_priority = 1;
+	sched_setscheduler(current, SCHED_FIFO, &schedpar);
 
 	/* set signals to accept */
 	siginitsetinv(&current->blocked, sigmask(SIGUSR1));
@@ -785,7 +785,7 @@ static void vnet_defer_xmit(struct work_struct *data)
 #endif
 
 	int ret = 0;
-
+   	
 	down(&pdp_txlock);
 
 	ret = pdp_mux(dev, skb->data, skb->len);
@@ -803,7 +803,7 @@ static void vnet_defer_xmit(struct work_struct *data)
 	vnet_start_xmit_flag = 0;
 
 	up(&pdp_txlock);
-    
+
 	netif_wake_queue(net);
 }
 
@@ -857,10 +857,10 @@ static int vnet_start_xmit(struct sk_buff *skb, struct net_device *net)
 	dev->vn_dev.stats.rx_packets++;
 	dev->vn_dev.stats.rx_bytes += skb->len;
 #else
-   if (vnet_start_xmit_flag != 0) {
+	if (vnet_start_xmit_flag != 0) {
 		return NETDEV_TX_BUSY;   
-    }
-   vnet_start_xmit_flag = 1; 
+	}
+	vnet_start_xmit_flag = 1;
 	workqueue_data = (unsigned long)skb;
 	PREPARE_WORK(&dev->vn_dev.xmit_task,vnet_defer_xmit);
 	schedule_work(&dev->vn_dev.xmit_task);
@@ -927,8 +927,8 @@ static int vnet_recv(struct pdp_info *dev, size_t len)
 
 	/* @LDK@ for multiple pdp.. , ex) email & streaming.. by hobac. */
 	if (!dev) {
-	return 0;
-}
+		return 0;
+	}
 
 	if (!netif_running(dev->vn_dev.net)) {
 		DPRINTK(1, "%s(id: %u) is not running\n", 
@@ -1138,7 +1138,7 @@ static int vs_write(struct tty_struct *tty,
 {
 	int ret;
    struct pdp_info *dev;
-
+   
 //	mutex_lock(&pdp_lock);
 
    dev = (struct pdp_info *)tty->driver_data; 
@@ -1279,9 +1279,9 @@ static int multipdp_vs_read(struct pdp_info *dev, char *buf, size_t len)
 static int vs_read(struct pdp_info *dev, size_t len)
 {
 	int retval = 0;
-   u32 size;
-   u32 copied_size;
-   int insert_size = 0;
+	u32 size;
+	u32 copied_size;
+	int insert_size = 0;
 
 	if (dev) {
 		/* pdp data length. */
@@ -1677,7 +1677,7 @@ static int pdp_activate(pdp_arg_t *pdp_arg, unsigned type, unsigned flags)
 	int ret;
 	struct pdp_info *dev;
 	struct net_device *net;
-   
+
 	dev = vmalloc(sizeof(struct pdp_info) + MAX_PDP_PACKET_LEN);
 	if (dev == NULL) {
 		DPRINTK(1, "out of memory\n");
@@ -1885,11 +1885,11 @@ static int multipdp_ioctl(struct inode *inode, struct file *file,
 		if (copy_from_user(&adjust, (void *)arg, sizeof (int)))
 			return -EFAULT;
 		return pdp_adjust(adjust);
-        
+
 	case HN_PDP_TXSTART:
 		pdp_tx_flag = 0;
 		return 0;
-			
+
 	case HN_PDP_TXSTOP:
 		pdp_tx_flag = 1;
 		return 0;
@@ -1982,7 +1982,7 @@ static void dpram_open_work_func(struct work_struct *work)
 
 	msleep(100);
 
-	/* run DPRAM I/O thread */
+   	/* run DPRAM I/O thread */
 	ret = kernel_thread(dpram_thread, NULL, CLONE_FS | CLONE_FILES);
 	if (ret < 0) {
 		EPRINTK("kernel_thread() failed\n");

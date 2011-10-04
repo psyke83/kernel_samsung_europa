@@ -41,6 +41,11 @@
 #include <linux/wakelock.h>
 
 #include "dpram.h"
+// DGS
+#include "./Inc/FSR.h"
+#include "./Inc/FSR_BML.h"
+#include "./Inc/FSR_LLD_4K_OneNAND.h"
+
 #include "../../arch/arm/mach-msm/smd_private.h"
 #include "../../arch/arm/mach-msm/proc_comm.h"
 
@@ -69,6 +74,11 @@
 
 static volatile unsigned char *SmemBase;
 static int DpramInited = 0;
+
+/* DGS Info Cache */
+static unsigned char aDGSBuf[4096];
+
+#define DGS_TEST 0
 
 static struct tty_driver *dpram_tty_driver;
 static dpram_tasklet_data_t dpram_tasklet_data[MAX_INDEX];
@@ -111,6 +121,9 @@ static struct ktermios *dpram_termios_locked[MAX_INDEX];
 
 extern void *smem_alloc(unsigned, unsigned);
 
+// hsil for cpufreq
+extern int cpufreq_direct_set_policy(unsigned int cpu, const char *buf);
+
 //Get charging status & charger Connect value!!!
 extern void get_charger_type(void);
 extern void msm_batt_check_event(void);
@@ -118,9 +131,21 @@ extern int get_charging_status(void);
 
 static void print_smem(void);
 static void dpram_ramdump(void);
+static int dpram_get_dgs(void);
 
 static void res_ack_tasklet_handler(unsigned long data);
 static void send_tasklet_handler(unsigned long data);
+
+// [BML functions for DGS
+INT32   (*bml_open)(UINT32        nVol, UINT32        nFlag);
+VOID    (*bml_acquireSM)(UINT32        nVol);
+INT32   (*ond_4k_read)(UINT32 nDev, UINT32 nPbn, UINT32 nPgOffset, UINT8 *pMBuf, FSRSpareBuf *pSBuf, UINT32 nFlag);
+VOID    (*bml_release)(UINT32        nVol);
+EXPORT_SYMBOL(bml_open);
+EXPORT_SYMBOL(bml_acquireSM);
+EXPORT_SYMBOL(ond_4k_read);
+EXPORT_SYMBOL(bml_release);
+// ]
 
 static DECLARE_TASKLET(fmt_send_tasklet, send_tasklet_handler, 0);
 static DECLARE_TASKLET(raw_send_tasklet, send_tasklet_handler, 0);
@@ -409,6 +434,8 @@ void power_down_registertimer(struct timer_list* ptimer, unsigned long timeover 
 void power_down_timeout(unsigned long arg);
 struct timer_list power_down_timer;
 
+// hsil for cpufreq
+struct device *cpu_gov_dev;
 
 static ssize_t show_info(struct device *d,
 		struct device_attribute *attr, char *buf)
@@ -537,6 +564,32 @@ static ssize_t store_power_down(struct device *d,
 }
 
 static DEVICE_ATTR(power_down, S_IRUGO|S_IWUSR, NULL, store_power_down);
+
+// hsil for cpufreq
+static ssize_t store_cpu_gov(struct device *d,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int i;
+	char *after;
+        unsigned long value = simple_strtoul(buf, &after, 10);
+
+	if (value == 1)
+	{
+		printk("[HSIL] %s(%d)\n", __func__, __LINE__);
+		cpufreq_direct_set_policy(0, "performance");
+	}	
+	else if (value == 0)
+	{
+		printk("[HSIL] %s(%d)\n", __func__, __LINE__);
+		cpufreq_direct_set_policy(0, "ondemand");
+	}
+	else
+		printk("[HSIL] %s : No format\n", __func__);
+
+	return count;
+}
+
+static DEVICE_ATTR(cpu_gov, S_IRUGO|S_IWUSR, NULL, store_cpu_gov);
 
 
 static int dpram_write(dpram_device_t *device,
@@ -841,6 +894,75 @@ static void dpram_mem_rw(struct _mem_param *param)
 	else {
 		READ_FROM_DPRAM((void *)&param->data, param->addr, sizeof(param->data));
 	}
+}
+
+static int dpram_get_dgs(void)
+{
+	int                   nRet;		
+#if DGS_TEST
+	typedef struct{
+		UINT8 header_code[4];  // magic 넘버   // {0x7F,0xAA,0xAF,0x7E}
+		UINT8 model[20];       // 모델명
+		UINT8 nature[40];      // 출항지
+		UINT8 custt_code[8];   // 거래선
+		UINT8 date[14];        // 버전 발행일
+		UINT8 charger[24];     // 담당자
+		UINT8 version[20];     // SW 버전명
+		UINT8 checksum[10];    // binary ckecksum
+		UINT8 crcsum[10];      // binary CRC
+		UINT8 Unique_Number[20];  // UN number
+		UINT8 mem_name[20];    // 메모리 명
+		UINT8 sec_code[20];    // 
+		UINT8 etc[40];         // 기타
+    }NAND_HEAD_INFO;
+	NAND_HEAD_INFO header_info = {{0x7F,0xAA,0xAF,0x7E}, {"GT-I5500"}, {"EUR-Open"}, {"TIM"},
+								{"2010-03-25"}, {"LKH"}, {"I5500AIJC3"}, {"C721"}, {"41D7"}, 
+								{"7011000003"}, {"KAC00200JM-D4YY000"}, {"1108-000061"}, {""}};
+#endif
+
+	printk("[DPRAM] Start getting DGS info.\n");
+
+	if(bml_open == NULL || bml_acquireSM == NULL || ond_4k_read == NULL || bml_release == NULL)
+	{
+		printk(KERN_ERR "[DPRAM] bml functions are not initilized yet!!\n");
+		return -1;
+	}
+
+
+	if (bml_open(0, FSR_BML_FLAG_NONE) != FSR_BML_SUCCESS)
+	{
+		printk("[DPRAM] BML_Open Error !!\n");
+		return -1;
+	}
+
+	printk("[DPRAM] Try to read DGS Info.\n");
+
+	/* Acquire SM */
+	bml_acquireSM(0);
+
+	/* 
+	 * Read DGS Page 
+	 * Read 5th Page of 2047 Block
+	 */
+	nRet = ond_4k_read(0, 2047, 5, aDGSBuf, NULL, FSR_LLD_FLAG_ECC_OFF);	
+
+	/* Release SM*/
+	bml_release(0);
+
+#if DGS_TEST
+	memcpy(aDGSBuf, &header_info,sizeof(NAND_HEAD_INFO));
+#endif
+
+	if(nRet != FSR_LLD_SUCCESS)
+	{
+		printk("[DPRAM] Reading DGS information failed !!\n");
+		return -1;
+	}
+
+	printk("[DPRAM] DSG buffer =  %s \n", aDGSBuf);
+	printk("[OneDRAM] %s complete\n", __func__);
+
+	return 0;
 }
 
 static void dpram_ramdump(void)
@@ -1161,6 +1283,14 @@ static int dpram_tty_ioctl(struct tty_struct *tty, struct file *file,
 			wake_unlock(&imei_wake_lock);
 			return 0;
 
+		case DPRAM_GET_DGS_INFO:
+			printk("[%s] DGS ioctl called\n", __func__);
+			if( !dpram_get_dgs() )
+				return copy_to_user((unsigned long *)arg, aDGSBuf, 256);
+			else
+				printk(KERN_ERR "[%s] Get DGS info failed\n", __func__);
+			return 0;
+
 		case HN_DPRAM_RAMDUMP:
 			dpram_ramdump();
 			return 0;
@@ -1286,17 +1416,17 @@ static void send_tasklet_handler(unsigned long data)
 
 	if (device != NULL && device->serial.tty) {
 		struct tty_struct *tty = device->serial.tty;
-			ret = dpram_read(device, non_cmd);
+		ret = dpram_read(device, non_cmd);
 		if (ret == -EAGAIN) {
 			if (non_cmd & INT_MASK_SEND_F) tasklet_schedule(&fmt_send_tasklet);
 			if (non_cmd & INT_MASK_SEND_R) tasklet_schedule(&raw_send_tasklet);
 			return ;
-			}
+		}
 #ifdef	NO_TTY_DPRAM
       if( tty->index != 1)	//index : 0=dpram0, 1=dpram1	
 #endif
-			tty_flip_buffer_push(tty);
-		}
+		tty_flip_buffer_push(tty);
+	}
 
 	else {
 		dpram_drop_data(device);
@@ -1961,14 +2091,14 @@ static int dump_write_proc_debug(struct file *file, const char *buffer,
 
 
 	if (buf[0] == '0') {			// low (no RAM dump)
-		dump_enable_flag = 0;
+		dump_enable_flag = 0;		
 		smem_flag->info = 0xAEAEAEAE;
 	} else if (buf[0] == '1') {		// middle (kernel fault)
 		dump_enable_flag = 1;
-		smem_flag->info = 0x0;
+		smem_flag->info = 0xA9A9A9A9;
 	} else if (buf[0] == '2') {		// high (user fault)
 		dump_enable_flag = 2;
-		smem_flag->info = 0x0;
+		smem_flag->info = 0xA9A9A9A9;
 	} else {
 		kfree(buf);
 		return -EINVAL;
@@ -2030,6 +2160,16 @@ static int __init dpram_init(void)
 		pr_err("Failed to create device file(%s)!\n", dev_attr_info.attr.name);
 	if(device_create_file(pm_dev, &dev_attr_power_down) < 0)
 		pr_err("Failed to create device file(%s)!\n", dev_attr_power_down.attr.name);
+
+	// hsil for cpufreq
+	cpu_gov_dev = device_create(sec_class, NULL, 0, NULL, "cpu");
+	if(IS_ERR(cpu_gov_dev))
+		pr_err("Failed to create device(cpu)!\n");
+	if(device_create_file(cpu_gov_dev, &dev_attr_info) < 0)
+		pr_err("Failed to create device file(%s)!\n", dev_attr_info.attr.name);
+	if(device_create_file(cpu_gov_dev, &dev_attr_cpu_gov) < 0)
+		pr_err("Failed to create device file(%s)!\n", dev_attr_cpu_gov.attr.name);
+
 error_return:
 
 	return ret;

@@ -29,7 +29,7 @@
 #include <linux/i2c/europa_tsp_gpio.h>
 
 #define FIRM_TEST 0
-#define DEBUG_INPUT_REPORT
+//#define DEBUG_INPUT_REPORT
 
 /* firmware - update */
 #if FIRM_TEST
@@ -333,8 +333,8 @@ static int synaptics_ts_probe(
 	set_bit(EV_ABS, ts->input_dev->evbit);
 
 	printk(KERN_INFO "synaptics_ts_probe: max_x: 240, max_y: 320\n");
-	input_set_abs_params(ts->input_dev, ABS_X, 0, MAX_X, 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_Y, 0, MAX_Y, 0, 0);
+	input_set_abs_params(ts->input_dev, ABS_X, -1, MAX_X+1, 0, 0);
+	input_set_abs_params(ts->input_dev, ABS_Y, -1, MAX_Y+1, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_PRESSURE, 0, 255, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_TOOL_WIDTH, 0, 15, 0, 0);
 

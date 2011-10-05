@@ -835,6 +835,36 @@ static unsigned bt_config_power_off[] = {
 void wlan_setup_clock(int on);
 extern int bluesleep_start(void);
 extern void bluesleep_stop(void);
+
+#if defined(CONFIG_MACH_EUROPA)
+static void bluetooth_setup_power(int on)
+{
+	struct vreg *vreg_bt_2_6v;	
+
+	vreg_bt_2_6v = vreg_get(NULL, "ldo14");
+	if (IS_ERR(vreg_bt_2_6v)) {
+	printk(KERN_ERR "%s: vreg get failed (%ld)\n",
+		   __func__, PTR_ERR(vreg_bt_2_6v));
+	return;
+	}
+
+	printk("%s %s --enter\n", __func__, on ? "on" : "down");
+
+	if (on) {
+		vreg_set_level(vreg_bt_2_6v, OUT2600mV);
+		vreg_enable(vreg_bt_2_6v);		
+
+		/* additional delay for power on */
+		//mdelay(20);
+	}
+	else
+	{
+		/* power off for sleep current */
+		vreg_disable(vreg_bt_2_6v);
+	}
+}
+#endif
+
 static int bluetooth_power(int on)
 {
 	int pin, rc;
@@ -857,6 +887,10 @@ static int bluetooth_power(int on)
 				return -EIO;
 			}
 		}
+
+#if defined(CONFIG_MACH_EUROPA)
+		bluetooth_setup_power(1);
+#endif
 		gpio_configure(88, GPIOF_DRIVE_OUTPUT | GPIOF_OUTPUT_HIGH);	/* BT_VREG_CTL */
 
 		msleep(100);
@@ -881,6 +915,10 @@ static int bluetooth_power(int on)
 			}
 #endif
 		}
+				
+#if defined(CONFIG_MACH_EUROPA)
+		bluetooth_setup_power(0);
+#endif
 	}
 	return 0;
 }

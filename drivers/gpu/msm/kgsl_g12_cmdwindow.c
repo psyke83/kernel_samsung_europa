@@ -30,16 +30,6 @@
 #define KGSL_G12_CMDWINDOW_TARGET_SHIFT		0
 #define KGSL_G12_CMDWINDOW_ADDR_SHIFT		8
 
-int kgsl_g12_cmdwindow_init(struct kgsl_device *device)
-{
-	return 0;
-}
-
-int kgsl_g12_cmdwindow_close(struct kgsl_device *device)
-{
-	return 0;
-}
-
 int kgsl_g12_cmdwindow_write(struct kgsl_device *device,
 		enum kgsl_cmdwindow_type target, unsigned int addr,
 		unsigned int data)
@@ -53,11 +43,6 @@ int kgsl_g12_cmdwindow_write(struct kgsl_device *device,
 	if (target < KGSL_CMDWINDOW_MIN ||
 		target > KGSL_CMDWINDOW_MAX) {
 		KGSL_DRV_ERR("dev %p invalid target\n", device);
-		return -EINVAL;
-	}
-
-	if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
-		KGSL_DRV_ERR("Trying to write uninitialized device.\n");
 		return -EINVAL;
 	}
 

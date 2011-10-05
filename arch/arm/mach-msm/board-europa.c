@@ -97,8 +97,6 @@
 #define MSM_FB_SIZE		0xA0000
 #define MSM_GPU_PHYS_SIZE	SZ_2M
 #define PMEM_KERNEL_EBI1_SIZE	0x1C000
-/* Using lower 1MB of OEMSBL memory for GPU_PHYS */
-#define MSM_GPU_PHYS_START_ADDR	 0xD600000ul
 #endif
 
 /* Using upper 1/2MB of Apps Bootloader memory*/
@@ -929,12 +927,6 @@ static struct resource kgsl_resources[] = {
 		.name = "kgsl_reg_memory",
 		.start = 0xA0000000,
 		.end = 0xA001ffff,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name   = "kgsl_phys_memory",
-		.start = 0,
-		.end = 0,
 		.flags = IORESOURCE_MEM,
 	},
 	{
@@ -2243,7 +2235,20 @@ static void __init msm7x2x_init(void)
 	kgsl_pdata.set_grp3d_async = NULL;
 	kgsl_pdata.imem_clk_name = "imem_clk";
 	kgsl_pdata.grp3d_clk_name = "grp_clk";
-	kgsl_pdata.grp2d_clk_name = NULL;
+	kgsl_pdata.grp3d_pclk_name = "grp_pclk";
+	kgsl_pdata.grp2d0_clk_name = NULL;
+	kgsl_pdata.idle_timeout_3d = HZ/5;
+	kgsl_pdata.idle_timeout_2d = 0;
+
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	kgsl_pdata.pt_va_size = SZ_32M;
+        /* Maximum of 32 concurrent processes */
+        kgsl_pdata.pt_max_count = 32;
+#else
+	kgsl_pdata.pt_va_size = SZ_128M;
+        /* We only ever have one pagetable for everybody */
+        kgsl_pdata.pt_max_count = 1;
+#endif
 #endif
 	usb_mpp_init();
 
@@ -2390,14 +2395,6 @@ static void __init msm_msm7x2x_allocate_memory_regions(void)
 		pr_info("allocating %lu bytes at %p (%lx physical) for kernel"
 			" ebi1 pmem arena\n", size, addr, __pa(addr));
 	}
-#ifdef CONFIG_ARCH_MSM7X27
-	size = MSM_GPU_PHYS_SIZE;
-	kgsl_resources[1].start = 0xD700000;
-	kgsl_resources[1].end = kgsl_resources[1].start + size - 1;
-	pr_info("allocating %lu bytes at (0xD700000 physical) for KGSL\n", size );
-
-#endif
-
 }
 
 static void __init msm7x2x_map_io(void)

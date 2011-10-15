@@ -127,7 +127,5 @@ source "drivers/staging/iio/Kconfig"
 
 source "drivers/staging/ramzswap/Kconfig"
 
-source "drivers/staging/ath6kl/Kconfig"
-
 endif # !STAGING_EXCLUDE_BUILD
 endif # STAGING

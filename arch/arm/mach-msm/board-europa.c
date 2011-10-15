@@ -855,7 +855,7 @@ static void bluetooth_setup_power(int on)
 		vreg_enable(vreg_bt_2_6v);		
 
 		/* additional delay for power on */
-		//mdelay(20);
+		mdelay(20);
 	}
 	else
 	{

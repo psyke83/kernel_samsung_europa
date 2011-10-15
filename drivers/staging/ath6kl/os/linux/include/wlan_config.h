@@ -74,14 +74,14 @@
  * 1 - Enable
  * 0 - Disable (Default)
  */
-#define WLAN_CONFIG_BT_SHARING          0
+#define WLAN_CONFIG_BT_SHARING          1
 
 /*
  * This configuration item sets WIFI OFF policy
  * 0 - CUT_POWER
  * 1 - DEEP_SLEEP (Default)
  */
-#define WLAN_CONFIG_WLAN_OFF                1
+#define WLAN_CONFIG_WLAN_OFF                0
 
 /*
  * This configuration item sets suspend policy
@@ -90,7 +90,7 @@
  * 2 - WoW
  * 3 - CUT_POWER if BT OFF (clock sharing designs only)
  */
-#define WLAN_CONFIG_PM_SUSPEND              0
+#define WLAN_CONFIG_PM_SUSPEND             2
 
 /*
  * This configuration item sets suspend policy to use if PM_SUSPEND is
@@ -100,7 +100,7 @@
  * 2 - WoW
  * 3 - CUT_POWER if BT OFF (clock sharing designs only)
  */
-#define WLAN_CONFIG_PM_WOW2                 0
+#define WLAN_CONFIG_PM_WOW2                3
 
 /*
  * Platform specific function to power ON/OFF AR6000 

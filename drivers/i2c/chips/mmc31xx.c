@@ -148,9 +148,9 @@ static ssize_t mmc31xx_fs_read(struct device *dev, struct device_attribute *attr
 	if (mmc31xx_i2c_rx_data(data, 6) < 0) {
 		return 0;
 	}
-	vec[1] = data[0] << 8 | data[1];
-	vec[0] = data[2] << 8 | data[3];
-	vec[2] = 7414 - (data[4] << 8 | data[5]);
+	vec[0] = data[0] << 8 | data[1];
+	vec[1] = data[2] << 8 | data[3];
+	vec[2] = data[4] << 8 | data[5];
 #if DEBUG
 	printk("[X - %04x] [Y - %04x] [Z - %04x]\n", 
 		vec[0], vec[1], vec[2]);
@@ -243,9 +243,9 @@ static int mmc31xx_ioctl(struct inode *inode, struct file *file,
 		if (mmc31xx_i2c_rx_data(data, 6) < 0) {
 			return -EFAULT;
 		}
-		vec[1] = data[0] << 8 | data[1];
-		vec[0] = data[2] << 8 | data[3];
-		vec[2] = 7414 - (data[4] << 8 | data[5]);
+		vec[0] = data[0] << 8 | data[1];
+		vec[1] = data[2] << 8 | data[3];
+		vec[2] = data[4] << 8 | data[5];
 	#if DEBUG
 		printk("[X - %04x] [Y - %04x] [Z - %04x]\n", 
 			vec[0], vec[1], vec[2]);
@@ -314,9 +314,9 @@ static int mmc31xx_ioctl(struct inode *inode, struct file *file,
 			printk(KERN_ERR "[mmc31xx] i2c read is failed\n");
 			return -EFAULT;
 		}
-		vec[1] = data[0] << 8 | data[1];
-		vec[0] = data[2] << 8 | data[3];
-		vec[2] = 7414 - (data[4] << 8 | data[5]);
+		vec[0] = data[0] << 8 | data[1];
+		vec[1] = data[2] << 8 | data[3];
+		vec[2] = data[4] << 8 | data[5];
 	#if DEBUG
 		printk("[X - %04x] [Y - %04x] [Z - %04x]\n", 
 			vec[0], vec[1], vec[2]);
@@ -465,7 +465,6 @@ static struct i2c_driver mmc31xx_driver = {
 static int __init mmc31xx_init(void)
 {
 	struct device *dev_t;
-	
 	pr_info("mmc31xx driver: init\n");
 	mag_class = class_create(THIS_MODULE, "magnetic");
 

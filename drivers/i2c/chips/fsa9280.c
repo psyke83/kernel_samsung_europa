@@ -34,10 +34,11 @@ static DECLARE_WAIT_QUEUE_HEAD(g_data_ready_wait_queue);
 int fsa9280_i2c_write(unsigned char u_addr, unsigned char u_data);
 int fsa9280_i2c_read(unsigned char u_addr, unsigned char *pu_data);
 
+
 int fsa9280_i2c_tx_data(char* txData, int length)
 {
-	int i;
-	
+	int rc; 
+
 	struct i2c_msg msg[] = {
 		{
 			.addr = pclient->addr,
@@ -46,17 +47,11 @@ int fsa9280_i2c_tx_data(char* txData, int length)
 			.buf = txData,		
 		},
 	};
-
-	for( i = 0; i < 10; i++)
-	{
-		if(i2c_transfer(pclient->adapter, msg, 1) >= 0) break;
-		printk(KERN_ERR "[FSA9280]: tx error.. retry %d !!\n", i);
-		mdelay(10);
-	}
-	if (i == 10) 
-	{
-		printk(KERN_ERR "[FSA9280]: fsa9280_i2c_tx_data error %d\n", i);
-		return -EIO;
+    
+	rc = i2c_transfer(pclient->adapter, msg, 1);
+	if (rc < 0) {
+		printk(KERN_ERR "[FSA9280]: fsa9280_i2c_tx_data error %d\n", rc);
+		return rc;
 	}
 
 	return 0;
@@ -81,8 +76,8 @@ int fsa9280_i2c_write(unsigned char u_addr, unsigned char u_data)
 
 static int fsa9280_i2c_rx_data(char* rxData, int length)
 {
-	int i;
-	
+	int rc;
+
 	struct i2c_msg msgs[] = {
 		{
 			.addr = pclient->addr,
@@ -92,23 +87,17 @@ static int fsa9280_i2c_rx_data(char* rxData, int length)
 		},
 		{
 			.addr = pclient->addr,
-			.flags = I2C_M_RD,
+			.flags = I2C_M_RD|I2C_M_NO_RD_ACK,
 			.len = length,
 			.buf = rxData,
 		},
 	};
 
-
-	for( i = 0; i < 10; i++)
-	{
-		if(i2c_transfer(pclient->adapter, msgs, 2) >= 0) break;
-		printk(KERN_ERR "[FSA9280]: tx error.. retry %d !!\n", i);
-		mdelay(10);
-	}
-	if (i == 10) 
-	{
-		printk(KERN_ERR "[FSA9280]: fsa9280_i2c_rx_data error %d\n", i);
-		return -EIO;
+	rc = i2c_transfer(pclient->adapter, msgs, 2);
+      
+	if (rc < 0) {
+		printk(KERN_ERR "[FSA9280]: fsa9280_i2c_rx_data error %d\n", rc);
+		return rc;
 	}
       
 	return 0;
@@ -127,6 +116,7 @@ int fsa9280_i2c_read(unsigned char u_addr, unsigned char *pu_data)
 		printk(KERN_ERR "[FSA9280]: i2c read failed\n");
 	return rc;	
 }
+
 
 static void fsa9280_chip_init(void)
 {
@@ -155,25 +145,16 @@ static int fsa9280_client(struct i2c_client *client)
 }
 
 extern int battery_restart(void);
-extern int batt_init_done;	// hsil
-
-//static int init_skip = 0;
 
 static irqreturn_t fsa9280_interrupt_handler(int irq, void *data)
 {
+	static int init_skip = 0;
 	disable_irq_nosync(irq);
-	
-	printk(KERN_INFO "[FSA9280]: irq active\n");	
-//	if(!init_skip) //move.. msm_batt_check_event
-//		init_skip = 1;
-//	else 
-		
-	if (!batt_init_done)	// hsil : in case battery driver is not initilized
-		printk("%s : This interrupt will be dropped\n", __func__);
+	if(!init_skip)
+		init_skip = 1;
 	else
 		battery_restart();
 
-	printk(KERN_INFO "[FSA9280]: irq release\n");	
 	enable_irq(irq);
 	return IRQ_HANDLED;
 }
